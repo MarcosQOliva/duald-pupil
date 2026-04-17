@@ -213,6 +213,11 @@ try
     tobiiState = logGazeEvent(tobiiState, settings.task.n_trials, 0, 'experiment_finished_screen');
     tobiiState = waitForAnyKeyWithGaze(tobiiState, settings.task.n_trials, 0, 'experiment_finished_screen', keys.escapeKey);
 
+
+    % inform user to wait
+    DrawFormattedText(scr.window, 'Writing gaze data to disk. Please wait... \n', 'center', 'center', visual.black);
+    Screen('Flip', scr.window);
+
     fprintf('%s\n', strrep(message_string, '\n', ' '));
     file_id = fopen(scorePath, 'w');
     fprintf(file_id, '%i\n', sum(ACC));
@@ -223,8 +228,14 @@ try
     saveGazeData(tobiiState);
 
     fclose(datFid);
-    fclose(selfRepFid);
-    fclose(globalSelfRepFid);
+    %fclose(selfRepFid);
+    %fclose(globalSelfRepFid);
+    
+    DrawFormattedText(scr.window, 'Writing gaze data to disk. Please wait... \ndone!', 'center', 'center', visual.black);
+    Screen('Flip', scr.window);
+
+    
+    
     cleanupExperiment(tobiiState);
 catch ME
     if ~isempty(fieldnames(tobiiState))
@@ -239,15 +250,18 @@ catch ME
     if datFid > 0
         fclose(datFid);
     end
-    if selfRepFid > 0
-        fclose(selfRepFid);
-    end
-    if globalSelfRepFid > 0
-        fclose(globalSelfRepFid);
-    end
+    
+    %if selfRepFid > 0
+    %    fclose(selfRepFid);
+    %end
+    %if globalSelfRepFid > 0
+    %    fclose(globalSelfRepFid);
+    %end
 
     cleanupExperiment(tobiiState);
     rethrow(ME);
+    
+    sca;
 end
 
 end
