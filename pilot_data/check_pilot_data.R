@@ -7,7 +7,7 @@ library(tidyverse)
 # ---------------------------------------------------------
 # check behavioural data
 
-d <- read_delim("ML01_range_gaze")
+d <- read_delim("ML02_range_gaze")
 str(d)
 
 # accuracy in decision 1 and 2
@@ -66,7 +66,7 @@ pl1 + pl2
 # ---------------------------------------------------------
 # check gaze and pupil data
 
-dg <- read_delim("ML01_range_gaze_gaze_samples.tsv")
+dg <- read_delim("ML02_range_gaze_gaze_samples.tsv")
 str(dg)
 
 # remove practice & breaks
@@ -118,7 +118,8 @@ count_clusters(dg$phase, "break")
 trials <- list()
 trial_count <- 0L
 
-time_window_stim1 <- c(-0.3, 0.8)
+time_window_stim1 <- c(-0.3, mean(d$RT[d$decision==1]) + 0.2 + 0.4) # stim1
+# time_window_stim1 <- c(-0.25, 0.6) # response
 
 # custom function to extract window
 extract_window <- function(X, label, pre_ms = 300, post_ms = 800) {
@@ -256,6 +257,7 @@ source("helper_functions.R")
 n_trials <- length(dg_list$trial)
 max_len <- max(vapply(dg_list$trial, function(tr) max(c(length(tr$pupil_1), length(tr$pupil_2))), numeric(1)))
 pa_matrix <- matrix(NA_real_, nrow = n_trials, ncol = max_len)
+t_matrix <- matrix(NA_real_, nrow = n_trials, ncol = max_len)
 
 for (i in seq_along(dg_list$trial)) {
   tr <- dg_list$trial[[i]]
@@ -278,6 +280,7 @@ for (i in seq_along(dg_list$trial)) {
   
   if (length(pa_ok) > 0) {
     pa_matrix[i, seq_along(pa_ok)] <- pa_ok
+    t_matrix[i, seq_along(time)] <- time
   }
 }
 
@@ -290,7 +293,8 @@ y_lim <- range(pa_matrix, na.rm = TRUE)
 plot(NA, NA, xlim = time_window_stim1, ylim = y_lim,
      xlab = "Time [sec]", ylab = "Pupil diameter [mm change from baseline]")
 
-time_sec <- dg_list$trial[[i]]$time_1
+# time_sec <- dg_list$trial[[i]]$time_1
+time_sec <- colMeans(t_matrix, na.rm = TRUE)
 pa_mean <- colMeans(pa_matrix, na.rm = TRUE)
 
 matlines(time_sec, t(pa_matrix), lty = 1, lwd = 0.4, col = rgb(0.8, 0.8, 0.8, 0.7))
@@ -306,7 +310,8 @@ sem <- pa_sd / sqrt(pmax(n, 1))
 
 pa_mean <- colMeans(pa_matrix, na.rm = TRUE)
 pa_mean_smooth <- movmean_partial(pa_mean, 6)
-time_sec <- dg_list$trial[[i]]$time_1
+# time_sec <- dg_list$trial[[i]]$time_1
+time_sec <- colMeans(t_matrix, na.rm = TRUE)
 ok <- is.finite(pa_mean_smooth) & is.finite(sem)
 
 ylim_all <- range(c(pa_mean_smooth[ok] - sem[ok], pa_mean_smooth[ok] + sem[ok]), na.rm = TRUE)
@@ -340,9 +345,10 @@ sem_hard <- pa_sd / sqrt(pmax(n, 1))
 mean_easy_s <- movmean_partial(mean_easy, 6)
 mean_hard_s <- movmean_partial(mean_hard, 6)
 
-time_sec <- dg_list$trial[[i]]$time_1
+# time_sec <- dg_list$trial[[i]]$time_1
+time_sec <- colMeans(t_matrix, na.rm = TRUE)
 
-y_lim <- range(c(mean_easy_s, mean_hard_s), na.rm = TRUE)
+y_lim <- range(c(mean_easy_s, mean_hard_s), na.rm = TRUE)*1.2
 plot(time_sec, mean_easy_s, type = "l", lwd = 0, col = "steelblue",
      xlab = "Time [sec]", ylab = "Pupil diameter [mm change from baseline]",
      xlim = time_window_stim1, ylim = y_lim)
@@ -360,7 +366,7 @@ lines(time_sec, mean_hard_s, lwd = 3, col = "firebrick")
 
 abline(v = 0, lty = 2, col = "black")
 
-legend("bottomleft", legend = c("easy (>1SD)", "hard (<1SD)"), 
+legend("topleft", legend = c("easy (>1SD)", "hard (<1SD)"), 
        col = c("steelblue", "firebrick"), 
        lty = 1, lwd = 3, bty = "n")
 
