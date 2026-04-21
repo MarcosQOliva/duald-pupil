@@ -4,3 +4,6 @@ example_duald/*
 example_duald/
 example_pupil/
 AGENTS.md
+./pilot_data/*
+.codex
+suggested_changes.md

@@ -18,7 +18,7 @@ if isPractice
 end
 
 soa1 = settings.task.soa_range(1) + rand(1) * (settings.task.soa_range(2) - settings.task.soa_range(1));
-soa2 = settings.task.soa_range(1) + rand(1) * (settings.task.soa_range(2) - settings.task.soa_range(1));
+soa2 = 0.2 + settings.task.soa_range(1) + rand(1) * (settings.task.soa_range(2) - settings.task.soa_range(1));
 
 tobiiState = logGazeEvent(tobiiState, trialNumber, 0, [trialPhasePrefix '_start']);
 [tobiiState, ~] = waitForFixation(scr, visual, tobiiState, trialNumber, keys.escapeKey);
@@ -100,6 +100,8 @@ Screen('Flip', scr.window);
 tobiiState = logGazeEvent(tobiiState, trialNumber, 0, [trialPhasePrefix '_end']);
 tobiiState = fetchAndAppendGaze(tobiiState, trialNumber, 0, 'trial_end');
 end
+
+%%% Helper functions below
 
 function drawDecisionFixation(scr, visual, decisionNumber)
 Screen('FillRect', scr.window, visual.bgColor / 255);

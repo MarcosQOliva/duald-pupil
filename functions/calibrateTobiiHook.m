@@ -1,4 +1,4 @@
-function eyetracker = calibrateTobiiHook(scr, eyetracker)
+function eyetracker = calibrateTobiiHook(scr, eyetracker, visual)
 %CALIBRATETOBIIHOOK Minimal ScreenBasedCalibration flow adapted from example_pupil.
 
 spaceKey = KbName('Space');
@@ -9,6 +9,92 @@ dotColor = [[1 0 0]; [1 1 1]] * 255;
 leftColor = [1 0 0] * 255;
 rightColor = [0 0 1] * 255;
 
+eyetracker.get_gaze_data();
+
+% %% first check that participats is laced in the correct position 
+% 
+% % Start collecting data
+% % The subsequent calls return the current values in the stream buffer.
+% % If a flat structure is prefered just use an extra input 'flat'.
+% % i.e. gaze_data = eyetracker.get_gaze_data('flat');
+% eyetracker.get_gaze_data();
+% 
+% Screen('TextSize', scr.window, 20);
+% 
+% while ~KbCheck
+% 
+%     DrawFormattedText(scr.window, 'When correctly positioned press any key to start the calibration.', 'center', scr.yres * 0.1, visual.white);
+% 
+%     distance = [];
+% 
+%     gaze_data = eyetracker.get_gaze_data();
+% 
+%     if ~isempty(gaze_data)
+%         last_gaze = gaze_data(end);
+% 
+%         validityColor = [1 0 0]*255;
+% 
+%         % Check if user has both eyes inside a reasonable tacking area.
+%         if last_gaze.LeftEye.GazeOrigin.Validity.('value') && last_gaze.RightEye.GazeOrigin.Validity.('value')
+%             % left_validity = all(last_gaze.LeftEye.GazeOrigin.InUserCoordinateSystem(1:2) < 0.85) ...
+%             %                      && all(last_gaze.LeftEye.GazeOrigin.InUserCoordinateSystem(1:2) > 0.15);
+%             % right_validity = all(last_gaze.RightEye.GazeOrigin.InUserCoordinateSystem(1:2) < 0.85) ...
+%             %                      && all(last_gaze.RightEye.GazeOrigin.InUserCoordinateSystem(1:2) > 0.15);
+%             left_validity = 1;
+%             right_validity = 1;
+%             if left_validity && right_validity
+%                 validityColor = [0 1 0]*255;
+%             end
+%         end
+% 
+%         origin = [scr.xres/4 scr.yres/4];
+%         size = [scr.xres/2 scr.yres/2];
+% 
+%         penWidthPixels = 3;
+%         baseRect = [0 0 size(1) size(2)];
+%         frame = CenterRectOnPointd(baseRect, scr.xres/2, scr.yCenter);
+% 
+%         Screen('FrameRect', scr.window, validityColor, frame, penWidthPixels);
+% 
+%         % Left Eye
+%         if last_gaze.LeftEye.GazeOrigin.Validity.('value')
+%             distance = [distance; round(last_gaze.LeftEye.GazeOrigin.InUserCoordinateSystem(3)/10,1)];
+%             left_eye_pos_x = double(1-last_gaze.LeftEye.GazeOrigin.InUserCoordinateSystem(1))*size(1) + origin(1);
+%             left_eye_pos_y = double(last_gaze.LeftEye.GazeOrigin.InUserCoordinateSystem(2))*size(2) + origin(2);
+%             %Screen('DrawDots', scr.window, [left_eye_pos_x left_eye_pos_y], dotSizePix, validityColor, [], 1);
+%             Screen('FillOval', scr.window, validityColor, CenterRectOnPoint([0,0, dotSizePix, dotSizePix], left_eye_pos_x, left_eye_pos_y));
+%         end
+% 
+%         % Right Eye
+%         if last_gaze.RightEye.GazeOrigin.Validity.('value')
+%             distance = [distance;round(last_gaze.RightEye.GazeOrigin.InUserCoordinateSystem(3)/10,1)];
+%             right_eye_pos_x = double(1-last_gaze.RightEye.GazeOrigin.InUserCoordinateSystem(1))*size(1) + origin(1);
+%             right_eye_pos_y = double(last_gaze.RightEye.GazeOrigin.InUserCoordinateSystem(2))*size(2) + origin(2);
+%             %Screen('DrawDots', scr.window, [right_eye_pos_x right_eye_pos_y], dotSizePix, validityColor, [], 1);
+%             Screen('FillOval', scr.window, validityColor, CenterRectOnPoint([0,0, dotSizePix, dotSizePix], right_eye_pos_x, right_eye_pos_y));
+%         end
+%         pause(0.05);
+%     end
+% 
+%     % debug
+%     % last_gaze.RightEye.GazeOrigin.InUserCoordinateSystem % all NaN
+% 
+% 
+%     DrawFormattedText(scr.window, sprintf('Current distance to the eye tracker: %.2f cm.',mean(distance)), 'center', scr.yres * 0.85, visual.white);
+% 
+% 
+%     % Flip to the screen. This command basically draws all of our previous
+%     % commands onto the screen.
+%     % For help see: Screen Flip?
+%     Screen('Flip', scr.window);
+% 
+% end
+% 
+% eyetracker.stop_gaze_data();
+
+
+
+% actual calibration
 shrink_factor = 0.15;
 lb = 0.1 + shrink_factor;
 xc = 0.5;
@@ -57,6 +143,9 @@ while calibrating
 
     calibration_result = calib.compute_and_apply();
     calib.leave_calibration_mode();
+
+    % debug
+    % calibration_result.Status
 
     if calibration_result.Status ~= CalibrationStatus.Success
         break;

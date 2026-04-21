@@ -1,4 +1,4 @@
-function tobiiState = setupTobii(settings, scr, subjectID, gazeBasePath)
+function tobiiState = setupTobii(settings, scr, subjectID, gazeBasePath, visual)
 %SETUPTOBII Connect to a Tobii tracker and start safe continuous collection.
 
 tobiiState = struct();
@@ -59,7 +59,7 @@ tobiiState.Tobii = Tobii;
 tobiiState.eyetracker = eyetracker;
 
 if settings.tobii.runCalibration
-    tobiiState.eyetracker = calibrateTobiiHook(scr, tobiiState.eyetracker);
+    tobiiState.eyetracker = calibrateTobiiHook(scr, tobiiState.eyetracker, visual);
 end
 
 % Start collection once. Subsequent calls to get_gaze_data() will be

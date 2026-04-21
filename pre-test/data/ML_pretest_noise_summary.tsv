@@ -1,0 +1,2 @@
+id	age	gender	n_trials	sigma_map	sigma_mean	sigma_sd	recommended_sigma	recommended_range
+ML	41	M	60	0.221317	0.225688	0.033948	0.225688	0.451377

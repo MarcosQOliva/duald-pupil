@@ -17,7 +17,7 @@ for side = 1:2
     z = visual.stim_dotsize * visual.inner_circle;
 
     for i = 1:n(side)
-        wh = xy(i, [1 2 1 2]) + [-z/2 -z/2 z/2 + z/2] + ...
+        wh = xy(i, [1 2 1 2]) + [-z/2 -z/2 z/2 z/2] + ...
             [visual.stim_centers(side, :) visual.stim_centers(side, :)];
         Screen('FillOval', scr.window, visual.stim_dotcolor, wh);
     end

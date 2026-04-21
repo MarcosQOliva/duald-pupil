@@ -1,7 +1,8 @@
 function [xy, ra, j, r] = dotcloud(n, s, retry)
 % dotcloud - Generate x/y positions of randomly distributed dots.
 
-rand('state', sum(100 * clock));
+% rand('state', sum(100 * clock));
+rng(sum(100 * clock));
 
 if nargin < 2
     s = 0;

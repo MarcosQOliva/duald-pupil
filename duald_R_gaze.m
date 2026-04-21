@@ -68,33 +68,36 @@ tobiiState = struct();
 scr = struct();
 
 try
-    [datFid, selfRepFid, globalSelfRepFid] = openDataFiles(behavPath, selfReportPath, globalSelfPath);
-
+    [datFid] = openDataFiles(behavPath); %, selfReportPath, globalSelfPath);
+    
     [scr, visual, keys] = openExperimentWindow(settings);
-    tobiiState = setupTobii(settings, scr, subjectID, gazeBasePath);
+    tobiiState = setupTobii(settings, scr, subjectID, gazeBasePath, visual);
     tobiiState = logGazeEvent(tobiiState, 0, 0, 'experiment_start');
-
+    
     DrawFormattedText(scr.window, ...
         ['Welcome to the dual-decision numerosity experiment.\n\n' ...
-         'Each trial starts only when your gaze is on the central fixation point.\n' ...
-         'Then you will judge which dot cloud has more dots, twice per trial.\n\n' ...
-         'Press any key to start the practice.'], ...
+        'Each trial starts only when your gaze is on the central fixation point.\n' ...
+        'Then you will judge which dot cloud has more dots, twice per trial.\n\n' ...
+        'The correct response in the 2nd decision depends on your 1st decision:\n' ...
+        ' if your 1st decision is correct, the correct answer in the 2nd decision will be RIGHT ARROW' ...
+        ' if your 1st decision is wrong, the correct answer in the 2nd decision will be LEFT ARROW.\n\n\n' ...
+        'Press any key to start the practice.'], ...
         'center', 'center', visual.black);
     Screen('Flip', scr.window);
     tobiiState = waitForAnyKeyWithGaze(tobiiState, 0, 0, 'practice_intro', keys.escapeKey);
-
+    
     HideCursor;
-
+    
     practice_min = log(60/40);
     practice_max = log(90/10);
-
+    
     for t = 1:settings.task.n_trials_practice
         d_i = practice_min + rand(1, 2) * (practice_max - practice_min);
         [~, ~, first_correct, second_correct, tobiiState] = runSingleTrial_gaze( ...
             scr, visual, keys, settings, tobiiState, -t, d_i, true);
-
+        
         Screen('Flip', scr.window);
-
+        
         if first_correct == 1 && second_correct == 1
             practiceMessage = 'Well done! Both answers were correct.\n\nPress any key to continue.';
         elseif first_correct == 1 && second_correct == 0
@@ -104,58 +107,83 @@ try
         else
             practiceMessage = 'Both answers were wrong.\n\nPress any key to continue.';
         end
-
+        
         DrawFormattedText(scr.window, practiceMessage, 'center', 'center', visual.black);
         Screen('Flip', scr.window);
         tobiiState = waitForAnyKeyWithGaze(tobiiState, -t, 0, 'practice_feedback', keys.escapeKey);
     end
-
+    
     DrawFormattedText(scr.window, ...
         ['Practice finished.\n\n' ...
-         'From now on, each trial begins after stable central fixation.\n' ...
-         'Try to keep looking at the fixation point until the dot clouds appear.\n\n' ...
-         'Press any key to begin the experiment.'], ...
+        'From now on, each trial begins after stable central fixation.\n' ...
+        'Try to keep looking at the fixation point until the dot clouds appear.\n\n' ...
+        'Press any key to begin the experiment.'], ...
         'center', 'center', visual.black);
     Screen('Flip', scr.window);
     tobiiState = waitForAnyKeyWithGaze(tobiiState, 0, 0, 'experiment_intro', keys.escapeKey);
     tobiiState = logGazeEvent(tobiiState, 0, 0, 'block_start');
-
+    
     ACC = [];
     block_first_correct = 0;
     block_second_correct = 0;
-
+    
+    %% main trial loop
     for t = 1:settings.task.n_trials
         d_i = sampleRangeDifficulty(settings.task.range_logratio, settings.task.logratio_min, 2);
         [dataline1, dataline2, first_correct, second_correct, tobiiState] = runSingleTrial_gaze( ...
             scr, visual, keys, settings, tobiiState, t, d_i, false);
-
+        
         ACC = [ACC, first_correct, second_correct]; %#ok<AGROW>
         block_first_correct = block_first_correct + first_correct;
         block_second_correct = block_second_correct + second_correct;
-
+        
         fprintf(datFid, '%s\t%s\t%s\t%i\t%s\t%s\t%.5f\n', ...
             subjectID, subjectAge, subjectGender, t, dataline1, 'range', settings.task.range_logratio);
         fprintf(datFid, '%s\t%s\t%s\t%i\t%s\t%s\t%.5f\n', ...
             subjectID, subjectAge, subjectGender, t, dataline2, 'range', settings.task.range_logratio);
-
+        
         if mod(t, settings.task.block_query_interval) == 0
-            promptText = sprintf('For the last %d trials,\nestimate how many correct decisions you made:', ...
-                settings.task.block_query_interval);
-            [reported_first, reported_second] = collectBlockEstimates(scr, visual, promptText);
-
-            trial_start = t - settings.task.block_query_interval + 1;
-            trial_end = t;
-            fprintf(selfRepFid, '%s\t%i\t%i\t%i\t%i\t%i\t%i\n', ...
-                subjectID, trial_start, trial_end, block_first_correct, block_second_correct, ...
-                reported_first, reported_second);
-
-            tobiiState = logGazeEvent(tobiiState, t, 0, 'block_selfreport');
-            tobiiState = fetchAndAppendGaze(tobiiState, t, 0, 'block_selfreport');
-
+            
+            %% make this into a feedback instead
+            headerText = sprintf('For the last %d trials,\nyou have made:\n- %i correct first decisions;\n- %i correct second decisions.\n\n\npress any key to continue.', ...
+                settings.task.block_query_interval, block_first_correct, block_second_correct);
+            
+            textSz = max(round(visual.textSize), 32);
+            Screen('FillRect', scr.window, visual.grey / 255);
+            Screen('TextSize', scr.window, textSz);
+            DrawFormattedText(scr.window, headerText, 'center', scr.yCenter - 140, visual.black);
+            
+            Screen('Flip', scr.window);
+            
+            while 1
+                [keyIsDown, ~, ~] = KbCheck(-1);
+                if keyIsDown
+                    break;
+                end
+            end
+            
+            % [reported_first, reported_second] = collectBlockEstimates(scr, visual, promptText);
+            
+            % trial_start = t - settings.task.block_query_interval + 1;
+            % trial_end = t;
+            % fprintf(selfRepFid, '%s\t%i\t%i\t%i\t%i\t%i\t%i\n', ...
+            %     subjectID, trial_start, trial_end, block_first_correct, block_second_correct, ...
+            %     reported_first, reported_second);
+            
+            % tobiiState = logGazeEvent(tobiiState, t, 0, 'block_selfreport');
+            % tobiiState = fetchAndAppendGaze(tobiiState, t, 0, 'block_selfreport');
+            tobiiState = logGazeEvent(tobiiState, t, 0, 'block_feedback');
+            tobiiState = fetchAndAppendGaze(tobiiState, t, 0, 'block_feedback');
+            
             block_first_correct = 0;
             block_second_correct = 0;
+            
+            % additional pause between trials?
+            WaitSecs(0.2);
         end
-
+        
+        
+        %% block
         if mod(t, settings.task.break_interval) == 0 && t < settings.task.n_trials
             breakMessage = sprintf(['Need a break?\n\n' ...
                 'You have completed %i out of %i total trials.\n\n' ...
@@ -173,34 +201,46 @@ try
             tobiiState = fetchAndAppendGaze(tobiiState, t, 0, 'iti');
         end
     end
-
-    promptText = 'Estimate the percentage of participants who you believe performed worse than you on this task.';
-    [global_estimate, global_rt] = collectGlobalSelfReport(scr, visual, promptText);
-    fprintf(globalSelfRepFid, '%s\t%s\t%s\t%i\t%.3f\n', ...
-        subjectID, subjectAge, subjectGender, global_estimate, global_rt);
-    tobiiState = logGazeEvent(tobiiState, settings.task.n_trials, 0, 'global_selfreport');
-    tobiiState = fetchAndAppendGaze(tobiiState, settings.task.n_trials, 0, 'global_selfreport');
-
+    
+    % promptText = 'Estimate the percentage of participants who you believe performed worse than you on this task.';
+    % [global_estimate, global_rt] = collectGlobalSelfReport(scr, visual, promptText);
+    % fprintf(globalSelfRepFid, '%s\t%s\t%s\t%i\t%.3f\n', ...
+    %     subjectID, subjectAge, subjectGender, global_estimate, global_rt);
+    % tobiiState = logGazeEvent(tobiiState, settings.task.n_trials, 0, 'global_selfreport');
+    % tobiiState = fetchAndAppendGaze(tobiiState, settings.task.n_trials, 0, 'global_selfreport');
+    
     message_string = ['Experiment Finished!\n\nYour score for this part is ', ...
         num2str(sum(ACC)), ' out of ', num2str(length(ACC)), '.\n\nPress any key to exit.'];
     DrawFormattedText(scr.window, message_string, 'center', 'center', visual.black);
     Screen('Flip', scr.window);
     tobiiState = logGazeEvent(tobiiState, settings.task.n_trials, 0, 'experiment_finished_screen');
     tobiiState = waitForAnyKeyWithGaze(tobiiState, settings.task.n_trials, 0, 'experiment_finished_screen', keys.escapeKey);
-
+    
     fprintf('%s\n', strrep(message_string, '\n', ' '));
     file_id = fopen(scorePath, 'w');
     fprintf(file_id, '%i\n', sum(ACC));
     fclose(file_id);
-
+    
+    % inform user to wait
+    DrawFormattedText(scr.window, 'Writing gaze data to disk. Please wait... \n', 'center', 'center', visual.black);
+    Screen('Flip', scr.window);
+    
     tobiiState = logGazeEvent(tobiiState, settings.task.n_trials, 0, 'experiment_end');
     tobiiState = fetchAndAppendGaze(tobiiState, settings.task.n_trials, 0, 'shutdown');
     saveGazeData(tobiiState);
-
+    
     fclose(datFid);
-    fclose(selfRepFid);
-    fclose(globalSelfRepFid);
+    %fclose(selfRepFid);
+    %fclose(globalSelfRepFid);
+    
+    DrawFormattedText(scr.window, 'Writing gaze data to disk. Please wait... \ndone!', 'center', 'center', visual.black);
+    Screen('Flip', scr.window);
+    
+    sca;
+    
     cleanupExperiment(tobiiState);
+    
+    
 catch ME
     if ~isempty(fieldnames(tobiiState))
         try
@@ -210,117 +250,37 @@ catch ME
         catch
         end
     end
-
+    
     if datFid > 0
         fclose(datFid);
     end
-    if selfRepFid > 0
-        fclose(selfRepFid);
-    end
-    if globalSelfRepFid > 0
-        fclose(globalSelfRepFid);
-    end
-
+    
+    %if selfRepFid > 0
+    %    fclose(selfRepFid);
+    %end
+    %if globalSelfRepFid > 0
+    %    fclose(globalSelfRepFid);
+    %end
+    
     cleanupExperiment(tobiiState);
+    sca;
     rethrow(ME);
 end
 
 end
 
-function [datFid, selfRepFid, globalSelfRepFid] = openDataFiles(behavPath, selfReportPath, globalSelfPath)
+function [datFid] = openDataFiles(behavPath) %, selfReportPath, globalSelfPath)
 datFid = fopen(behavPath, 'w');
 fprintf(datFid, ['id\tage\tgender\ttrial\tdecision\tn_left\tn_right\tside\tresponse\taccuracy\tRT\t' ...
     'conf\tconf_RT\tmode\tparam\n']);
 
-selfRepFid = fopen(selfReportPath, 'w');
-fprintf(selfRepFid, 'id\ttrial_start\ttrial_end\ttrue_first\ttrue_second\treported_first\treported_second\n');
-
-globalSelfRepFid = fopen(globalSelfPath, 'w');
-fprintf(globalSelfRepFid, 'id\tage\tgender\testimate_percent\tRT\n');
+% selfRepFid = fopen(selfReportPath, 'w');
+% fprintf(selfRepFid, 'id\ttrial_start\ttrial_end\ttrue_first\ttrue_second\treported_first\treported_second\n');
+% 
+% globalSelfRepFid = fopen(globalSelfPath, 'w');
+% fprintf(globalSelfRepFid, 'id\tage\tgender\testimate_percent\tRT\n');
 end
 
-function [scr, visual, keys] = openExperimentWindow(settings)
-PsychDefaultSetup(2);
-Screen('Preference', 'SkipSyncTests', settings.display.skipSyncTests);
-
-screenNumber = max(Screen('Screens'));
-
-visual.white = 255;
-visual.grey = floor(255 / 2);
-visual.black = 0;
-visual.bgColor = visual.grey;
-visual.fixColor = 170 / 255;
-
-[scr.window, scr.windowRect] = PsychImaging('OpenWindow', screenNumber, visual.grey / 255, [], 32, 2);
-Screen('Flip', scr.window);
-
-scr.ifi = Screen('GetFlipInterval', scr.window);
-Screen('TextSize', scr.window, 60);
-scr.topPriorityLevel = MaxPriority(scr.window);
-Priority(scr.topPriorityLevel);
-
-[scr.xCenter, scr.yCenter] = RectCenter(scr.windowRect);
-[scr.xres, scr.yres] = Screen('WindowSize', scr.window);
-Screen('BlendFunction', scr.window, 'GL_SRC_ALPHA', 'GL_ONE_MINUS_SRC_ALPHA');
-
-scr.subDist = settings.display.subDistCm;
-scr.width = settings.display.monitorWidthMm;
-
-ppd = va2pix(1, scr);
-visual.ppd = ppd;
-visual.textSize = round(0.5 * ppd);
-visual.fix_size = 0.1 * ppd;
-visual.stim_size = 4 * ppd;
-visual.stim_ecc = 4 * ppd;
-visual.stim_rects = [ ...
-    CenterRectOnPoint([0, 0, visual.stim_size, visual.stim_size], scr.xCenter - visual.stim_ecc, scr.yCenter)', ...
-    CenterRectOnPoint([0, 0, visual.stim_size, visual.stim_size], scr.xCenter + visual.stim_ecc, scr.yCenter)'];
-visual.stim_dur = settings.task.stim_dur;
-visual.dots_dy = (visual.stim_size / 2) * 1.5;
-visual.dots_xy = [scr.xCenter - visual.stim_ecc, scr.xCenter + visual.stim_ecc; ...
-    scr.yCenter - visual.dots_dy, scr.yCenter - visual.dots_dy];
-visual.dots_col_1 = (visual.white / 255) / 3;
-visual.dots_col_2 = ([246, 14, 0; 0, 160, 0]' / 255);
-visual.dots_size = 20;
-visual.stim_pen_width = 1;
-visual.inner_circle = round(visual.stim_size * 0.95);
-visual.stim_dotsize = 0.08;
-visual.stim_dotcolor = [visual.black, visual.black, visual.black, 0.65];
-visual.stim_centers = [scr.xCenter - visual.stim_ecc, scr.yCenter; ...
-    scr.xCenter + visual.stim_ecc, scr.yCenter];
-visual.ndots_ref = settings.task.ndots_ref;
-
-KbName('UnifyKeyNames');
-keys.escapeKey = KbName('ESCAPE');
-keys.leftKey = KbName('LeftArrow');
-keys.rightKey = KbName('RightArrow');
-end
-
-function settings = getDefaultSettings()
-settings.display.subDistCm = 65;
-settings.display.monitorWidthMm = 480;
-settings.display.skipSyncTests = 2;
-
-settings.task.soa_range = [0.4, 0.6];
-settings.task.iti = 1;
-settings.task.n_trials = 200;
-settings.task.n_trials_practice = 10;
-settings.task.block_query_interval = 10;
-settings.task.break_interval = 50;
-settings.task.collect_confidence = [0, 0];
-settings.task.ndots_ref = 50;
-settings.task.stim_dur = 0.5;
-
-settings.tobii.enable = true;
-settings.tobii.allowDummyMode = false;
-settings.tobii.runCalibration = true;
-settings.tobii.fixation.centerNormXY = [0.5, 0.5];
-settings.tobii.fixation.radiusNorm = 0.05;
-settings.tobii.fixation.dwellTimeSec = 0.25;
-settings.tobii.fixation.invalidGraceSec = 0.10;
-settings.tobii.fixation.noGazePromptSec = 2.0;
-settings.tobii.fixation.pollIntervalSec = 0.01;
-end
 
 function out = mergeStructs(base, override)
 out = base;
